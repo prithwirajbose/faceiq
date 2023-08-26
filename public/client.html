@@ -1,0 +1,23 @@
+<html>
+
+<head>
+    <title>Client</title>
+</head>
+
+<body>
+    <img src="">
+    <script>
+        // get img dom element
+        const img = document.querySelector('img');
+
+        const WS_URL = 'ws://localhost:9090/';
+        const ws = new WebSocket(WS_URL);
+        window.URL = window.URL || window.webkitURL;
+        ws.onopen = () => console.log(`Connected to ${WS_URL}`);
+        ws.onmessage = msg => {
+            img.src = msg.data;
+        }
+    </script>
+</body>
+
+</html>

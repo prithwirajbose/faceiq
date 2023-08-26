@@ -1,0 +1,206 @@
+<html>
+
+<head>
+    <title>FaceIQ</title>
+    <script src="https://code.jquery.com/jquery-3.7.0.min.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@48,400,0,0" />
+    <style type="text/css">
+        body {
+            font-family: 'Roboto', sans-serif;
+        }
+    </style>
+</head>
+
+<body>
+    <div style="width:500px; text-align:center; margin:10px auto;">
+        <div style="border:2px solid #000; background:#333; margin-bottom:10px;">
+
+            <div id="wrap_video">
+                <video id="video" style="width:480px; height:320px;" autoplay></video>
+                <div id="vidtop" style="position: absolute; top: 10px; left: 300px; width: 480px; padding:0px; margin:0px; height: 320px; z-index: 100; background:transparent; ">
+                </div>
+            </div>
+        </div>
+        <div style="margin-bottom:10px;"><input style="width:100%;" type="text" name="faceName" id="faceName" placeholder="Enter Name" /></div>
+        <div style="margin-bottom:10px;"><input type="button" name="camBtn" id="camBtn" value="Turn On Camera" />
+            <input type="button" name="dataBtn" id="dataBtn" value="Remember Me" />
+        </div>
+        <div style="margin-bottom:10px; visibility: hidden; font-size:10px; color:green;" id="trainResult">Trained! You can train me again for better recognition.</div>
+
+    </div>
+    <div style="width:600px; text-align:center; margin:10px auto;" id="personId"></div>
+    <script type="text/javascript">
+        var ws = null,
+            camOn = false,
+            train = false,
+            intvl = null;
+        const video = document.getElementById('video');
+        $(document).ready(function() {
+            var destination = $('#video').offset();
+            $('#vidtop').css({
+                top: destination.top - 10,
+                left: destination.left
+            });
+            $('#camBtn').click(function(e) {
+                $('#vidtop').css("background-image", "");
+                toggleCamera();
+            });
+
+            $('#dataBtn').click(function() {
+                $('#vidtop').css("background-image", "");
+                if ($.trim($('#faceName').val()) == '') {
+                    alert("Name of the person is required");
+                } else {
+                    train = true;
+                    if (camOn == false) {
+                        $('#camBtn').attr('value', "Turn Off Camera");
+                        turnOnVideo();
+                    }
+                    $('#dataBtn').attr('value', "Memorizing...");
+                    $('#dataBtn').prop('disabled', true);
+                }
+            });
+        });
+
+        function toggleCamera() {
+            $('#camBtn').prop('disabled', true);
+            try {
+                if (camOn == true) {
+                    $('#camBtn').attr('value', "Turn On Camera");
+                    turnOffVideo();
+                } else {
+                    $('#camBtn').attr('value', "Turn Off Camera");
+                    turnOnVideo();
+                }
+            } catch (e) {
+
+            }
+            $('#camBtn').prop('disabled', false);
+        }
+
+        function turnOffVideo() {
+            camOn = false;
+            clearInterval(intvl);
+            closeSocket();
+            video.pause();
+            video.srcObject.getTracks()[0].stop();
+            video.src = "";
+        }
+
+        function turnOnVideo() {
+            camOn = true;
+            navigator.mediaDevices.getUserMedia({
+                video: {
+                    width: 480,
+                    height: 320
+                }
+            }).then((stream) => video.srcObject = stream);
+            startStreaming();
+        }
+
+        // returns a frame encoded in base64
+        function getFrame() {
+            const canvas = document.createElement('canvas');
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            canvas.getContext('2d').drawImage(video, 0, 0);
+            const data = canvas.toDataURL('image/jpeg');
+            return data;
+        }
+
+        function startStreaming() {
+            return new Promise(function(resolve, reject) {
+                openSocket();
+                const DELAY = 1000;
+                ws.onopen = () => {
+                    intvl = setInterval(() => {
+                        if (camOn == true) {
+                            ws.send('{"data": "' + getFrame() + '", "train": ' + train + ', "personName": "' + $.trim($('#faceName').val()) + '"}');
+                        }
+                    }, DELAY);
+                }
+
+                ws.onmessage = msg => {
+                    var resp = JSON.parse(msg.data);
+                    if (resp.trainDone && resp.trainDone === true) {
+                        $('#dataBtn').attr('value', "Remember Me");
+                        $('#dataBtn').prop('disabled', false);
+                        $('#trainResult').css('visibility', 'visible');
+                        train = false;
+                        setTimeout(() => {
+                            $('#trainResult').css('visibility', 'hidden');
+                        }, 3000);
+                    } else {
+                        var detectedText = '<table style="width:600px; font-size:20px;" border="0" cellpadding="0" cellspacing="5"><tr><th style="width:50%">People</th><th style="width:50%">Objects</th></tr><tr><td style="text-align:center;">';
+                        if (resp.data && resp.data != null && resp.data.length > 0) {
+                            var fData = resp.data;
+                            fData = fData.sort((a, b) => (a.matchData['_label'] > b.matchData['_label']) ? 1 : ((b.matchData['_label'] > a.matchData['_label']) ? -1 : 0));
+                            for (var i = 0; i < fData.length; i++) {
+                                var emObj = fData[i].emotion;
+                                var emotion = Object.keys(emObj).reduce(function(a, b) {
+                                    return emObj[a] > emObj[b] ? a : b
+                                });
+                                emotion = '<span style="font-size:32px;vertical-align:middle;" class="material-symbols-outlined">' + emoticons[emotion] + '</span>';
+                                var gender = fData[i].gender == 'male' ? 'Male' : 'Female';
+                                var age = parseInt(fData[i].age + "");
+                                detectedText += fData[i].matchData['_label'] + ' [ ' + gender + ' ' + emotion + ' ]<br>'; // + ' (' + parseFloat("" + fData[i].matchData['_distance']).toFixed(2) + ')';
+                            }
+                        }
+
+                        detectedText += '</td><td style="text-align:center;"><div style="font-size:20px;">';
+                        if (resp.objectData && resp.objectData != null && resp.objectData.length > 0) {
+                            for (var k = 0; k < resp.objectData.length; k++) {
+                                detectedText += resp.objectData[k].class + '<br>';
+                            }
+                        }
+                        detectedText += '</div></td></tr></table>';
+
+                        $('#personId').html(detectedText);
+
+                        if (resp.img && resp.img.length > 0)
+                            $('#vidtop').css("background-image", "url('" + resp.img.replace(/(\r\n|\n|\r)/gm, "") + "')");
+                        else
+                            $('#vidtop').css("background-image", "");
+
+
+
+                    }
+                }
+            });
+        }
+
+        var emoticons = {
+            neutral: 'sentiment_neutral',
+            happy: 'sentiment_satisfied',
+            sad: 'sentiment_dissatisfied',
+            angry: 'sentiment_very_dissatisfied',
+            surprised: 'sentiment_worried',
+            fearful: 'sentiment_frustrated',
+            disgusted: 'sentiment_extremely_dissatisfied'
+        }
+
+        function getCookie(name) {
+            const value = `; ${document.cookie}`;
+            const parts = value.split(`; ${name}=`);
+            if (parts.length === 2) return parts.pop().split(';').shift();
+        }
+
+        function openSocket() {
+            var WS_URL = decodeURIComponent(getCookie('WS_URL'));
+            if (ws == null) {
+                ws = new WebSocket(WS_URL);
+            }
+        }
+
+        function closeSocket() {
+            if (ws != null)
+                ws.close();
+            ws = null;
+        }
+    </script>
+</body>
+
+</html>

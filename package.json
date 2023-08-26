@@ -1,0 +1,45 @@
+{
+    "name": "faceiq",
+    "version": "1.0.0",
+    "description": "A Face Recognition App",
+    "main": "./app.js",
+    "scripts": {
+        "test": "echo \"Error: no test specified\" && exit 1",
+        "build": "babel index.ts --out-file dist/html-login-widget.js",
+        "babel-version": "babel --version",
+        "bundle": "webpack"
+    },
+    "keywords": [
+        "lodash",
+        "lodash extra",
+        "lodash extended",
+        "object utils",
+        "json utils",
+        "string utils",
+        "number utils",
+        "array utils",
+        "boolen utils",
+        "function utils"
+    ],
+    "author": "Prithwiraj Bose <sribasu@gmail.com> (https://sribasu.com)",
+    "license": "BSD",
+    "dependencies": {
+        "express": "4.18.2",
+        "cookie-parser": "1.4.6",
+        "lodash": "latest",
+        "ws": "8.13.0",
+        "canvas": "latest",
+        "@vladmandic/face-api": "1.7.12",
+        "@tensorflow/tfjs-node": "4.8.0",
+        "@tensorflow/tfjs-node-gpu": "4.8.0",
+        "@tensorflow/tfjs-backend-cpu": "4.8.0",
+        "@tensorflow/tfjs-backend-webgl": "4.8.0",
+        "@tensorflow-models/coco-ssd": "2.2.2",
+        "@tensorflow-models/mobilenet": "2.1.0",
+        "sqlite3": "5.1.6",
+        "dotenv": "latest",
+        "forever-monitor": "^3.0.3",
+        "fs": "latest"
+    },
+    "devDependencies": {}
+}
